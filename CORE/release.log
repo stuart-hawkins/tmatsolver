@@ -1,0 +1,12 @@
+TMATSOLVER (~/Stuart/Matlab/tmatsolver/working/Source/)
+2023-01-10 06:22:02 [PASS] license_matlab.txt design.m
+2023-01-10 06:22:02 [PASS] license_matlab.txt mie_tmatrix.m
+2023-01-10 06:22:02 [PASS] license_matlab.txt particle.m
+2023-01-10 06:22:02 [PASS] license_matlab.txt sound_hard_disk.m
+2023-01-10 06:22:02 [PASS] license_matlab.txt sound_soft_disk.m
+2023-01-10 06:22:02 [PASS] license_matlab.txt tmatsolver.m
+2023-01-10 06:22:02 [PASS] license_matlab.txt tmplot.m
+data and graphs (~/Stuart/Matlab/data_and_graphs/working/Source/)
+2023-01-10 06:22:02 [PASS] license_matlab.txt mymovie.m
+2023-01-10 06:22:02 [PASS] license_matlab.txt largerAxis.m
+2023-01-10 06:22:02 [PASS] license_matlab.txt largerCaxis.m
