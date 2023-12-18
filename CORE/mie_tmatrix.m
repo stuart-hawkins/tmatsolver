@@ -12,7 +12,7 @@
 %
 % See also: tmatrix.
 %
-% Stuart C. Hawkins - 7 January 2023
+% Stuart C. Hawkins - 13 January 2023
 
 % Copyright 2023 Stuart C. Hawkins.
 % 	
@@ -32,30 +32,39 @@
 % along with TMATSOLVER.  If not, see <http://www.gnu.org/licenses/>.
 
 
-function T = mie_tmatrix(kwave,radius,n,BC,x0)
+function T = mie_tmatrix(kwave,radius,n,BC,x0,nu)
 
 % set default for scatterer centre
-if nargin<5
+if nargin<5 || isempty(x0)
     x0 = 0;
+end
+
+% set default for refractive index
+if nargin<6
+    nu = 1;
 end
 
 % precompute Hankel and Bessel function values
 l = -n:n;
 h = besselh(0:n,kwave*radius);
 j = besselj(0:n,kwave*radius);
+jnu = besselj(0:n,nu*kwave*radius);
 
 % ...and their derivatives
 hd = besselhd(0:n,kwave*radius);
 jd = besseljd(0:n,kwave*radius);
+jdnu = besseljd(0:n,nu*kwave*radius);
 
 % H and J contain values of Hankel and Bessel functions for orders
 % -l:l
 H = h(abs(l)+1);
 J = j(abs(l)+1);
+Jnu = jnu(abs(l)+1);
 
 % ...and similar for derivatives
 Hd = hd(abs(l)+1);
 Jd = jd(abs(l)+1);
+Jdnu = jdnu(abs(l)+1);
 
 % compute the T-matrix entries... the T-matrices are diagonal because
 % the scatterers are circular
@@ -68,6 +77,12 @@ switch upper(BC)
     case 'HARD'
 
         M = diag(-Jd./Hd);
+
+    case 'PENETRABLE'
+
+        disc = (nu*kwave)*Jdnu.*H - kwave*Jnu.*Hd;
+        cof = -(nu*kwave)*Jdnu.*J + kwave*Jnu.*Jd;
+        M = diag(cof./disc);
 
     otherwise
 

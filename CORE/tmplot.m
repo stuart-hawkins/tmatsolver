@@ -1,20 +1,24 @@
 % Plot wave field
 %
-%  tmplot(ax,u) plots the field u over the rectangular domain 
+%  tmplot(ax,[],u) plots the field u over the rectangular domain 
 %  [ax(1) ax(2)] x [ax(3) ax(4)]. Here u must be of class incident or
 %  wavefunctionexpansion. The quantity plotted is real(u).
 %
-%  tmplot(ax,u,v,...) plots the sum u + v + ....
+%  tmplot(ax,[],u,v,...) plots the sum u + v + ....
 %
-%  tmplot(ax,phase,u,v,...) where phase is a complex scalar plots 
+%  tmplot(ax,[],phase,u,v,...) where phase is a complex scalar plots 
 %  phase * (u + v + ...).
+%
+%  tmplot(ax,mode,...) specifies the kind of plot. mode can be 'ABS' or
+%  'REAL' or 'LOG' or a function handle. If mode is a function handle then
+%  the result of the function is plotted.
 %
 %  h = tmplot(...) returns the graphics handle h of the plot.
 %
 % See also: plane_wave, regularwavefunctionexpansion,
 % radiatingwavefunctionexpansion.
 %
-% Stuart C. Hawkins - 7 January 2023
+% Stuart C. Hawkins - 18 March 2023
 
 % Copyright 2023 Stuart C. Hawkins.
 % 	
@@ -34,7 +38,7 @@
 % along with TMATSOLVER.  If not, see <http://www.gnu.org/licenses/>.
 
 
-function varargout = tmplot(range,varargin)
+function varargout = tmplot(range,mode,varargin)
 
 %-----------------------------------------------
 % process the parameters
@@ -43,6 +47,11 @@ function varargout = tmplot(range,varargin)
 % check range has the right size
 if length(range) ~= 4
     error('range must be a vector of length 4')
+end
+
+% set default for mode
+if isempty(mode)
+    mode = 'REAL';
 end
 
 % check the phase
@@ -71,7 +80,7 @@ end
 %-----------------------------------------------
 
 % points per wavelength parameter
-ppw = 10;
+ppw = 40;
 
 %-----------------------------------------------
 % try to determine wavenumber
@@ -158,8 +167,35 @@ for j=varargin_offset+1:length(varargin)
     u = u + phase * varargin{j}.evaluate(z);
 end
 
+% compute the quantity to be plotted... what to do depends on mode
+if isa(mode,'function_handle')
+    % mode is a function that we apply
+    v = mode(u);
+elseif isa(mode,'char')
+    % mode is a string specifying what to do
+    switch upper(mode)
+        case 'ABS'
+            v = abs(u);
+        case 'REAL'
+            v = real(u);
+        case 'IMAG'
+            v = imag(u);
+        case 'LOG'
+            v = log10(abs(u));
+        otherwise
+            error('mode %s not recognised',mode)
+    end
+else
+    % mode is not the correct type
+    error('mode must be a string or a function handle')
+end
+
+%-----------------------------------------------
+% plot the field
+%-----------------------------------------------
+
 % plot field
-h = surf(x,y,zeros(size(u)),real(u));
+h = surf(x,y,zeros(size(u)),v);
 
 % return the graphics handle if required
 if nargout>0

@@ -19,6 +19,15 @@
 %  f = obj.getTotalField(x) evaluates the total field at points
 %  given in the array x. The points are specified by complex numbers.
 %
+%  a = obj.getCoefficients() returns the vector of coefficients for the
+%  wavefunction expansions.
+%
+%  a = obj.getCoefficients(k) returns the vector of coefficients for the
+%  kth scatterer.
+%
+%  a = obj.getCoefficients(l,k) returns the order l coefficient for the
+%  kth scatterer.
+%
 %  obj.schematic() visualises the scatterers.
 %
 %  obj.plot(ax) plots the real part of the total field on the domain
@@ -26,13 +35,42 @@
 %
 %  obj.plot(ax,phase) plots real(phase*u) where u is the total field.
 %
+%  obj.plot(ax,phase,'ABS') plots abs(phase*u) where u is the total field.
+%
+%  obj.plot(ax,phase,'LOG') plots log10(abs(phase*u)) where u is the total 
+%  field.
+%
+%  obj.plot(ax,phase,f) plots f(phase*u) where u is the total field and f
+%  is a function handle.
+%
+%  obj.plotIncident(...) plots the incident field.
+%
+%  obj.plotScattered(...) plots the scattered field.
+%
 %  m = obj.movie(ax) generate a movie of the real part of the total field 
 %  on the domain [ax(1) ax(2)] x [ax(3) ax(4)]. The movie is stored in an 
 %  object of type mymovie.
 %
+% The solve() method uses GMRES to solve a linear system. Additional
+% methods are provided to control and monitor the performance of the
+% solver.
+%
+%  obj.setSolverTol(tol) sets the solver tolerance to tol.
+%
+%  obj.setSolverIterations(N) sets the maximum number of iterations to N.
+%
+%  obj.getSolverIterations() returns the number of iterations that GMRES
+%  required to match the solver tolerance.
+%
+%  obj.getSolverResidualHistory() returns a vector containing the GMRES
+%  residual norm at each iteration.
+%
+%  obj.getSolverFlag() returns the GMRES flag. See help gmres for help on
+%  interpreting this.
+%
 % See also: particle, plane_wave, mymovie.
 %
-% Stuart C. Hawkins - 8 January 2023
+% Stuart C. Hawkins - 18 March 2023
 
 % Copyright 2023 Stuart C. Hawkins.
 % 	
@@ -58,6 +96,11 @@ classdef tmatsolver < handle
         incident_field
         particles
         soln
+        solver_tol
+        solver_itns
+        solver_actual_iterations
+        solver_reshist
+        solver_flag
     end
 
     methods
@@ -97,6 +140,17 @@ classdef tmatsolver < handle
 
             end
 
+            % set default GMRES tolerance
+            self.solver_tol = 1e-8;
+
+            % set default GMRES restart parameter
+            self.solver_itns = [];
+
+            % initalise residual history, flag and iteration number
+            self.solver_actual_iterations = [];
+            self.solver_flag = [];
+            self.solver_reshist = [];
+
         end
 
         %----------------------------------
@@ -124,14 +178,18 @@ classdef tmatsolver < handle
             end
 
             % work out degrees of freedom of matrix
-            dof = 2*sum(orders)+1;
+            dof = sum(2*orders+1);
 
             % initialise vector holding centres of the particles
             pos = zeros(length(self.particles),1);
 
-            % pull out centres
+            % initialise vector holding rotation of the particles
+            rot = zeros(length(self.particles),1);
+
+            % pull out centres and rotations
             for j=1:length(self.particles)
                 pos(j) = self.particles(j).pos;
+                rot(j) = self.particles(j).rot;
             end
 
             %- - - - - - - - - - - - - - - - -
@@ -149,8 +207,14 @@ classdef tmatsolver < handle
                 % compatible with the wavefunction expansion
                 self.particles(j).tmatrix.setOrigin(pos(j));
 
+                % rotate the coordinate system to match the scatterer
+                a{j}.rotatecoordinates(rot(j))
+
                 % apply the T-matrix to the incident field
                 b{j} = self.particles(j).tmatrix * a{j};
+
+                % rotate the coordinate system back again
+                b{j}.rotatecoordinates(-rot(j))
 
             end
 
@@ -158,18 +222,41 @@ classdef tmatsolver < handle
             rhs = pack(b);
 
             %- - - - - - - - - - - - - - - - -
+            % setup solver iterations parameters
+            %- - - - - - - - - - - - - - - - -
+
+            % we choose the GMRES parameters to try to avoid it restarting
+
+            if isempty(self.solver_itns)
+
+                % set nitns to empty... this means the number of iterations
+                % is set by maxit
+                nitns = [];
+
+                % set maxit to the maximum possible ie dof
+                maxit = dof;
+
+            else
+
+                % set number of GMRES iterations
+                nitns = self.solver_itns;
+
+                % and no restart
+                maxit = 1;
+
+            end
+
+            %- - - - - - - - - - - - - - - - -
             % solve linear system
             %- - - - - - - - - - - - - - - - -
 
-            % set number of GMRES iterations
-            nitns = min(100,floor(dof/2));
-
             % solve linear system using GMRES
-            [x,flag,relres,iter,reshist] = gmres(@matrix_product,rhs,nitns,1e-8,1);
+            [x,self.solver_flag,relres,self.solver_actual_iterations,self.solver_reshist] = gmres(@matrix_product,rhs,...
+                nitns,self.solver_tol,maxit);
 
             % check GMRES worked okay
-            if flag
-                warning('GMRES returned flag %d',flag)
+            if self.solver_flag
+                warning('GMRES returned flag %d',self.solver_flag)
             end
 
             % turn x into a wavefunction expansion
@@ -211,8 +298,14 @@ classdef tmatsolver < handle
                     % compatible with the wavefunction expansion
                     self.particles(j).tmatrix.setOrigin(pos(j));
 
+                    % rotate the coordinate system to match the scatterer
+                    csum.rotatecoordinates(rot(j))
+                
                     % apply the T-matrix
                     tsum = self.particles(j).tmatrix * csum;
+
+                    % rotate the coordinate system back again
+                    tsum.rotatecoordinates(-rot(j))
 
                     % compute total field scattered by particle j
                     d{j} = c{j} - tsum;
@@ -338,21 +431,145 @@ classdef tmatsolver < handle
         % plot field
         %----------------------------------
 
-        function plot(self,range,phase)
+        function plot(self,range,phase,mode)
 
             % set default for phase
-            if nargin<3
+            if nargin<3 || isempty(phase)
                 phase = 1;
             end               
+
+            % set default for mode
+            if nargin<4 || isempty(mode)
+                mode = 'REAL';
+            end
 
             % store hold state
             hold_state = ishold;
 
             % plot the total field... note this may blow up close the the
             % scatterer origins
-            tmplot(range,phase,self.incident_field,self.soln{:})
+            tmplot(range,mode,phase,self.incident_field,self.soln{:})
 
             % next we apply a mask for each scatterer to hide the blow up
+            self.plotMasks()
+
+            % make the plot look pretty
+            view([0 90])
+            axis equal
+            shading interp
+
+            % draw the scatterers too
+            hold on
+            self.schematic()
+
+            % make axis tight
+            axis(range)
+
+            % restore the hold state
+            if ~hold_state
+                hold off
+            end
+
+        end
+
+        %----------------------------------
+        % plot scattered field
+        %----------------------------------
+
+        function plotScattered(self,range,phase,mode)
+
+            % set default for phase
+            if nargin<3 || isempty(phase)
+                phase = 1;
+            end               
+
+            % set default for mode
+            if nargin<4 || isempty(mode)
+                mode = 'REAL';
+            end
+
+            % store hold state
+            hold_state = ishold;
+
+            % plot the total field... note this may blow up close the the
+            % scatterer origins
+            tmplot(range,mode,phase,self.soln{:})
+
+            % next we apply a mask for each scatterer to hide the blow up
+            self.plotMasks()
+
+            % make the plot look pretty
+            view([0 90])
+            axis equal
+            shading interp
+
+            % draw the scatterers too
+            hold on
+            self.schematic()
+
+            % make axis tight
+            axis(range)
+
+            % restore the hold state
+            if ~hold_state
+                hold off
+            end
+
+        end
+
+        %----------------------------------
+        % plot scattered field
+        %----------------------------------
+
+        function plotIncident(self,range,phase,mode)
+
+            % set default for phase
+            if nargin<3 || isempty(phase)
+                phase = 1;
+            end               
+
+            % set default for mode
+            if nargin<4 || isempty(mode)
+                mode = 'REAL';
+            end
+
+            % store hold state
+            hold_state = ishold;
+
+            % plot the total field... note this may blow up close the the
+            % scatterer origins
+            tmplot(range,mode,phase,self.incident_field)
+
+            % next we apply a mask for each scatterer to hide the blow up
+            self.plotMasks()
+
+            % make the plot look pretty
+            view([0 90])
+            axis equal
+            shading interp
+
+            % draw the scatterers too
+            hold on
+            self.schematic()
+
+            % make axis tight
+            axis(range)
+
+            % restore the hold state
+            if ~hold_state
+                hold off
+            end
+
+        end
+
+        %----------------------------------
+        % plot scatterer masks
+        %----------------------------------
+
+        % Note: this assumes we just did a plot... other wise strange 
+        % results will occur
+
+        function plotMasks(self)
 
             % get the surface plot we just did... it should be the first
             % child of the current axes
@@ -382,20 +599,6 @@ classdef tmatsolver < handle
 
             % put the masked colour data in the surface plot
             set(obj,'cdata',c)
-
-            % make the plot look pretty
-            view([0 90])
-            axis equal
-            shading interp
-
-            % draw the scatterers too
-            hold on
-            self.schematic()
-
-            % restore the hold state
-            if ~hold_state
-                hold off
-            end
 
         end
 
@@ -439,6 +642,124 @@ classdef tmatsolver < handle
                 m.snap()
                 
             end
+
+        end
+
+        %----------------------------------
+        % get coefficients
+        %----------------------------------
+
+        function varargout = getCoefficients(self,varargin)
+
+            % check solution has been computed
+            if isempty(self.soln)
+                error('First run solve()')
+            end
+
+            switch nargin
+
+                case 1
+                    % then return all the coefficients as a cell array
+                    varargout{1} = pack(self.soln);
+
+                case 2
+                    % then varargin{1} represents a scatterer's index and
+                    % return the corresponding coefficients
+                    varargout{1} = pack(self.soln(varargin{1}));
+
+                case 3
+                    % then varargin{2} represents a scatterer's index and
+                    % varargin{1} the order of the desired coefficient
+                    tmp = self.soln{varargin{2}};
+                    varargout{1} = tmp.coefficients(varargin{1} + 1 + ...
+                        self.particles(varargin{2}).tmatrix.order);
+
+                otherwise
+
+                    error('Unexpected number of parameters')
+
+            
+            end
+
+        end
+
+        %----------------------------------
+        % get GMRES residual
+        %----------------------------------
+
+        function val = getSolverResidualHistory(self)
+
+            % check that the residual history exists
+            if isempty(self.solver_reshist)
+                error('First call solve method.')
+            end
+
+            % return residual history
+            val = self.solver_reshist;
+
+        end
+
+        %----------------------------------
+        % get GMRES iterations
+        %----------------------------------
+
+        function val = getSolverIterations(self)
+
+            % check that the itns exists
+            if isempty(self.solver_actual_iterations)
+                error('First call solve method.')
+            end
+
+            % return solver iterations
+            val = self.solver_actual_iterations(end);
+
+        end
+
+        %----------------------------------
+        % get GMRES flag
+        %----------------------------------
+
+        function val = getSolverFlag(self)
+
+            % check that the flag exists
+            if isempty(self.solver_flag)
+                error('First call solve method.')
+            end
+
+            % return solver flag
+            val = self.solver_flag;
+
+        end
+
+        %----------------------------------
+        % set GMRES iterations
+        %----------------------------------
+
+        function setSolverIterations(self,itns)
+
+            % set default value
+            if nargin<2
+                itns = [];
+            end
+
+            % set solver iterations
+            self.solver_itns = itns;
+
+        end
+
+        %----------------------------------
+        % set GMRES tolerance
+        %----------------------------------
+
+        function setSolverTol(self,tol)
+
+            % set default value
+            if nargin<2
+                tol = 1e-8;
+            end
+
+            % set solver tolerance
+            self.solver_tol = tol;
 
         end
 

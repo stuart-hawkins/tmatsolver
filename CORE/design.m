@@ -59,6 +59,17 @@ classdef design < handle & matlab.mixin.Heterogeneous
         end
 
         %-----------------------------------------------
+        % T-matrix error measure
+        %-----------------------------------------------
+
+        function err = error(self)
+
+            % use T-matrix error method
+            err = self.tmat.error();
+
+        end
+
+        %-----------------------------------------------
         % default plot function... this can be overloaded
         % in child classes
         %-----------------------------------------------

@@ -5,6 +5,10 @@
 %  p = particle(t,x) represents a particle of type t located at x. t must
 %  be of class design.
 %
+%  p = particle(t,x,phi) represents a particle of type t located at x,
+%  rotated by an angle phi in the positive direction. t must be of class
+%  design.
+%
 %  p.plot() visualises the particle. This uses the plot method of the
 %  underlying type.
 %
@@ -37,6 +41,7 @@ classdef particle < handle
     properties
         type
         pos
+        rot
     end
 
     methods
@@ -45,15 +50,22 @@ classdef particle < handle
         % constructor
         %-----------------------------------------------
 
-        function self = particle(type,pos)
+        function self = particle(type,pos,rot)
 
-            % set defaults for type and pos in case no arguments are 
+            % set defaults for type, pos and rot in case no arguments are 
             % given... this allows us to create arrays of particle using 
             % the particle.empty construction
             if nargin==0
                 type = [];
                 pos = NaN;
+                rot = NaN;
                 return
+            end
+
+            % set default for rot
+            if nargin<3
+                % default is no rotation
+                rot = 0;
             end
 
             % check that type is of the correct class
@@ -66,6 +78,9 @@ classdef particle < handle
 
             % store position of particle
             self.pos = pos;
+
+            % store orientation of particle
+            self.rot = rot;
 
         end
 
@@ -90,13 +105,15 @@ classdef particle < handle
             % origin
             h = self.type.plot();
 
-            % use hgttransform to move the plot to the right place...
+            % use hgttransform to rotate the shape and move it to the right 
+            % place...
             hgt = hgtransform;
             for k=1:length(h)
                 set(h(k),'parent',hgt);
             end
-            M = makehgtform('translate',[real(self.pos);imag(self.pos);0]);
-            set(hgt,'Matrix',M)      
+            M1 = makehgtform('zrotate',self.rot);
+            M2 = makehgtform('translate',[real(self.pos);imag(self.pos);0]);
+            set(hgt,'Matrix',M2*M1)      
 
             % return graphics handle if needed
             if nargout>0

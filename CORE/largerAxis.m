@@ -37,7 +37,7 @@
 function varargout = largerAxis(varargin)
 
 % if no axis data is provided then use the current axis setting
-if nargin>2
+if nargin>1
     ax = varargin{2};
 else
     ax = axis;
