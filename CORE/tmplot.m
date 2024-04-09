@@ -20,7 +20,7 @@
 %
 % Stuart C. Hawkins - 18 March 2023
 
-% Copyright 2023 Stuart C. Hawkins.
+% Copyright 2023, 2024 Stuart C. Hawkins.
 % 	
 % This file is part of TMATSOLVER.
 % 
@@ -80,7 +80,7 @@ end
 %-----------------------------------------------
 
 % points per wavelength parameter
-ppw = 40;
+ppw = 20;
 
 %-----------------------------------------------
 % try to determine wavenumber

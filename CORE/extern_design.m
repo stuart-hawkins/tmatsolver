@@ -12,7 +12,7 @@
 %
 % Stuart C. Hawkins - 12 January 2023
 
-% Copyright 2023 Stuart C. Hawkins.
+% Copyright 2023, 2024 Stuart C. Hawkins.
 % 	
 % This file is part of TMATSOLVER.
 % 

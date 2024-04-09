@@ -43,9 +43,15 @@
 %  obj.plot(ax,phase,f) plots f(phase*u) where u is the total field and f
 %  is a function handle.
 %
+%  h = obj.plot(...) returns the graphics handle h.
+%
 %  obj.plotIncident(...) plots the incident field.
 %
+%  h = obj.plotIncident(...) returns the graphics handle h.
+%
 %  obj.plotScattered(...) plots the scattered field.
+%
+%  h = obj.plotScattered(...) returns the graphics handle h.
 %
 %  m = obj.movie(ax) generate a movie of the real part of the total field 
 %  on the domain [ax(1) ax(2)] x [ax(3) ax(4)]. The movie is stored in an 
@@ -70,9 +76,9 @@
 %
 % See also: particle, plane_wave, mymovie.
 %
-% Stuart C. Hawkins - 18 March 2023
+% Stuart C. Hawkins - 9 April 2024
 
-% Copyright 2023 Stuart C. Hawkins.
+% Copyright 2023, 2024 Stuart C. Hawkins.
 % 	
 % This file is part of TMATSOLVER.
 % 
@@ -431,7 +437,7 @@ classdef tmatsolver < handle
         % plot field
         %----------------------------------
 
-        function plot(self,range,phase,mode)
+        function varargout = plot(self,range,phase,mode)
 
             % set default for phase
             if nargin<3 || isempty(phase)
@@ -448,7 +454,7 @@ classdef tmatsolver < handle
 
             % plot the total field... note this may blow up close the the
             % scatterer origins
-            tmplot(range,mode,phase,self.incident_field,self.soln{:})
+            h = tmplot(range,mode,phase,self.incident_field,self.soln{:});
 
             % next we apply a mask for each scatterer to hide the blow up
             self.plotMasks()
@@ -460,7 +466,10 @@ classdef tmatsolver < handle
 
             % draw the scatterers too
             hold on
-            self.schematic()
+            j = self.schematic();
+
+            % combine graphics handles
+            h = [h;j];
 
             % make axis tight
             axis(range)
@@ -468,6 +477,11 @@ classdef tmatsolver < handle
             % restore the hold state
             if ~hold_state
                 hold off
+            end
+
+            % return graphics handles if required
+            if nargout > 0
+                varargout{1} = h;
             end
 
         end
@@ -476,7 +490,7 @@ classdef tmatsolver < handle
         % plot scattered field
         %----------------------------------
 
-        function plotScattered(self,range,phase,mode)
+        function varargout = plotScattered(self,range,phase,mode)
 
             % set default for phase
             if nargin<3 || isempty(phase)
@@ -493,7 +507,7 @@ classdef tmatsolver < handle
 
             % plot the total field... note this may blow up close the the
             % scatterer origins
-            tmplot(range,mode,phase,self.soln{:})
+            h = tmplot(range,mode,phase,self.soln{:});
 
             % next we apply a mask for each scatterer to hide the blow up
             self.plotMasks()
@@ -505,7 +519,10 @@ classdef tmatsolver < handle
 
             % draw the scatterers too
             hold on
-            self.schematic()
+            j = self.schematic();
+
+            % combine graphics handles
+            h = [h;j];
 
             % make axis tight
             axis(range)
@@ -513,6 +530,11 @@ classdef tmatsolver < handle
             % restore the hold state
             if ~hold_state
                 hold off
+            end
+
+            % return graphics handles if required
+            if nargout > 0
+                varargout{1} = h;
             end
 
         end
@@ -521,7 +543,7 @@ classdef tmatsolver < handle
         % plot scattered field
         %----------------------------------
 
-        function plotIncident(self,range,phase,mode)
+        function varargout = plotIncident(self,range,phase,mode)
 
             % set default for phase
             if nargin<3 || isempty(phase)
@@ -538,7 +560,7 @@ classdef tmatsolver < handle
 
             % plot the total field... note this may blow up close the the
             % scatterer origins
-            tmplot(range,mode,phase,self.incident_field)
+            h = tmplot(range,mode,phase,self.incident_field);
 
             % next we apply a mask for each scatterer to hide the blow up
             self.plotMasks()
@@ -550,7 +572,10 @@ classdef tmatsolver < handle
 
             % draw the scatterers too
             hold on
-            self.schematic()
+            j = self.schematic();
+
+            % combine graphics handles
+            h = [h;j];
 
             % make axis tight
             axis(range)
@@ -558,6 +583,11 @@ classdef tmatsolver < handle
             % restore the hold state
             if ~hold_state
                 hold off
+            end
+
+            % return graphics handles if required
+            if nargout > 0
+                varargout{1} = h;
             end
 
         end
